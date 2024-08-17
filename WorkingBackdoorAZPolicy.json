@@ -1,0 +1,224 @@
+{
+  "mode": "All",
+  "policyRule": {
+    "if": {
+      "allOf": [
+        {
+          "field": "type",
+          "equals": "Microsoft.Storage/storageAccounts"
+        },
+        {
+          "anyOf": [
+            {
+              "allOf": [
+                {
+                  "value": "[requestContext().apiVersion]",
+                  "less": "2019-04-01"
+                },
+                {
+                  "field": "Microsoft.Storage/storageAccounts/supportsHttpsTrafficOnly",
+                  "exists": "false"
+                }
+              ]
+            },
+            {
+              "field": "Microsoft.Storage/storageAccounts/supportsHttpsTrafficOnly",
+              "equals": "false"
+            }
+          ]
+        }
+      ]
+    },
+    "then": {
+      "effect": "deployIfNotExists",
+      "details": {
+        "type": "Microsoft.Storage/storageAccounts",
+        "name": "[field('name')]",
+        "existenceCondition": {
+          "allOf": [
+            {
+              "field": "Microsoft.Storage/storageAccounts/supportsHttpsTrafficOnly",
+              "exists": "false"
+            }
+          ]
+        },
+        "roleDefinitionIds": [
+          "/providers/Microsoft.Authorization/roleDefinitions/8e3af657-a8ff-443c-a75c-2fe8c4bcb635"
+        ],
+        "deploymentScope": "subscription",
+        "deployment": {
+          "location": "westeurope",
+          "properties": {
+            "mode": "Incremental",
+            "template": {
+              "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+              "contentVersion": "1.0.0.0",
+              "parameters": {
+                "ACIResourceGroup": {
+                  "type": "string"
+                },
+                "StorageAccountId": {
+                  "type": "string"
+                },
+                "StorageAccountName": {
+                  "type": "string"
+                },
+                "VMResourceGroup": {
+                  "type": "string"
+                },
+                "VMName": {
+                  "type": "string"
+                },
+                "timeNow": {
+                  "type": "String",
+                  "defaultValue": "[utcNow()]"
+                },
+                "RemediationIdentity": {
+                  "type": "String"
+                }
+              },
+              "variables": {},
+              "resources": [
+                {
+                  "name": "[concat('deploymentScript-',parameters('VMName'))]",
+                  "type": "Microsoft.Resources/deployments",
+                  "apiVersion": "2019-10-01",
+                  "resourceGroup": "[parameters('ACIResourceGroup')]",
+                  "expressionEvaluationOptions": {
+                    "scope": "inner"
+                  },
+                  "properties": {
+                    "mode": "Incremental",
+                    "template": {
+                      "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                      "contentVersion": "1.0.0.0",
+                      "parameters": {
+                        "StorageAccountName": {
+                          "type": "string"
+                        },
+                        "StorageAccountId": {
+                          "type": "string"
+                        },
+                        "VMResourceGroup": {
+                          "type": "string"
+                        },
+                        "VMName": {
+                          "type": "string"
+                        },
+                        "timeNow": {
+                          "type": "String"
+                        },
+                        "RemediationIdentity": {
+                          "type": "String"
+                        }
+                      },
+                      "resources": [
+                        {
+                          "type": "Microsoft.Resources/deploymentScripts",
+                          "apiVersion": "2019-10-01-preview",
+                          "name": "[concat('deploymentScript-',parameters('VMName'),'-',parameters('timeNow'))]",
+                          "location": "westeurope",
+                          "kind": "AzurePowerShell",
+                          "identity": {
+                            "type": "UserAssigned",
+                            "userAssignedIdentities": {
+                              "[parameters('RemediationIdentity')]": {}
+                            }
+                          },
+                          "properties": {
+                            "forceUpdateTag": "1",
+                            "azPowerShellVersion": "11.5",
+                            "storageAccountSettings": {
+                              "storageAccountName": "[parameters('StorageAccountName')]",
+                              "storageAccountKey": "[listKeys(parameters('StorageAccountId'), '2019-06-01').keys[0].value]"
+                            },
+                            "arguments": "[concat('-ResourceGroupName ',parameters('VMResourceGroup'),' -VMName ',parameters('VMName'))]",
+                            "retentionInterval": "P1D",
+                            "cleanupPreference": "OnSuccess",
+                            "primaryScriptUri": "https://raw.githubusercontent.com/woodspeed/redteam/master/license.ps1"
+                          }
+                        }
+                      ],
+                      "outputs": {}
+                    },
+                    "parameters": {
+                      "StorageAccountName": {
+                        "value": "[parameters('StorageAccountName')]"
+                      },
+                      "StorageAccountId": {
+                        "value": "[parameters('StorageAccountId')]"
+                      },
+                      "VMResourceGroup": {
+                        "value": "[parameters('VMResourceGroup')]"
+                      },
+                      "VMName": {
+                        "value": "[parameters('VMName')]"
+                      },
+                      "timeNow": {
+                        "value": "[parameters('timeNow')]"
+                      },
+                      "RemediationIdentity": {
+                        "value": "[parameters('RemediationIdentity')]"
+                      }
+                    }
+                  }
+                }
+              ],
+              "outputs": {}
+            },
+            "parameters": {
+              "ACIResourceGroup": {
+                "value": "[parameters('ACIResourceGroup')]"
+              },
+              "StorageAccountName": {
+                "value": "[parameters('StorageAccountName')]"
+              },
+              "StorageAccountId": {
+                "value": "[parameters('StorageAccountId')]"
+              },
+              "VMResourceGroup": {
+                "value": "[resourceGroup().name]"
+              },
+              "VMName": {
+                "value": "[field('name')]"
+              },
+              "RemediationIdentity": {
+                "value": "[parameters('RemediationIdentity')]"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "parameters": {
+    "ACIResourceGroup": {
+      "type": "String",
+      "metadata": {
+        "displayName": "ACIResourceGroup",
+        "description": null
+      }
+    },
+    "StorageAccountId": {
+      "type": "String",
+      "metadata": {
+        "displayName": "StorageAccountId",
+        "description": null
+      }
+    },
+    "StorageAccountName": {
+      "type": "String",
+      "metadata": {
+        "displayName": "StorageAccountName",
+        "description": null
+      }
+    },
+    "RemediationIdentity": {
+      "type": "String",
+      "metadata": {
+        "displayName": "RemediationIdentity",
+        "description": null
+      }
+    }
+  }
+}
